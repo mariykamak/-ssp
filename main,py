@@ -1,0 +1,253 @@
+import os
+
+from PyQt5.QtWidgets import (
+    QApplication, QWidget,
+    QFileDialog,
+    QLabel, QPushButton, QListWidget,
+    QHBoxLayout, QVBoxLayout
+)
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPixmap
+
+from PIL import Image
+from PIL.ImageFilter import(
+    BLUR, CONTOUR, DETAIL, EDGE_ENHANCE, EDGE_ENHANCE_MORE,
+    EMBOSS, FIND_EDGES, SMOOTH, SMOOTH_MORE, SHARPEN,
+    GaussianBlur, UnsharpMask
+)
+
+
+######################### Дизайн #########################
+app = QApplication([])
+win = QWidget()
+win.resize(700, 500)
+win.setWindowTitle('Easy Editor')
+lb_image = QLabel("Kартинка")
+btn_dir = QPushButton("Пaпka")
+
+
+# Створює список у Pygt, який потім можна буде відобразити у стовпчик
+lw_files = QListWidget() # []
+
+
+btn_left = QPushButton("Лево")
+btn_right =  QPushButton("Пpаво")
+btn_flip =  QPushButton("Зеркало")
+btn_sharp =  QPushButton("Резкость")
+btn_bw =  QPushButton("Ч/Б")
+
+row = QHBoxLayout()
+col1 = QVBoxLayout()
+col2  = QVBoxLayout()
+col1.addWidget(btn_dir)
+col1.addWidget(lw_files)
+col2.addWidget(lb_image, 95)
+row_tools = QHBoxLayout()
+row_tools.addWidget (btn_left)
+row_tools.addWidget (btn_right)
+row_tools.addWidget (btn_flip)
+row_tools.addWidget(btn_sharp)
+row_tools.addWidget(btn_bw)
+col2.addLayout(row_tools)
+
+row.addLayout(col1, 20)
+row.addLayout(col2, 80)
+win. setLayout (row)
+
+win. show()
+
+######################### Кінець дизайну #########################
+
+# Змiнна workdir створюється для збереження шляху до папки
+# 'D:\Python_Logika\Sun_10_00'
+workdir = ''
+
+def filter(files, extensions):
+    '''Функція filter необхідна для фільтрації файлів, i вибору файлів з певним розширенням
+        :param1: files - Bci файли якi в в папці
+        :param2: extensions - Bci розширення, з якими ми файли приймаємо
+    '''
+    # Список для зберігання допустимих файлів (з певним розширенням )
+    result = []
+    # Перебираємо всі файли які в нас є в папці
+    for filename in files:
+        # Перебираємо всі допустимі розширення
+        for ext in extensions:
+            # Якщо файл закінчується на допустиме розширення # pict.jpg
+            if filename.endswith(ext):
+                # Ми поповнюємо список допустимих файлів нашим файлом
+                result.append(filename)
+    # Повертаємо список для зберігання допустимих файлів
+    return result
+
+
+
+def chooseWorkdir():
+    '''Функція для вибору певної папки'''
+    # Беремо конкретно нашу змінну workdir
+    global workdir
+    # Відкриває вікно для вибору папки, і відповідно зберігає цей шлях у змінній workdir
+    workdir = QFileDialog.getExistingDirectory()
+
+def showFilenamesList():
+    '''Показує список усіх наших файлів, які ми передали'''
+    global workdir
+    # Створюємо список допустимих данних
+    extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp']
+    # Запускаємо функцію chooseWorkdir
+    chooseWorkdir()
+    # Забираємо всі файли,  за допомогою функції filter, і зберігаємо її у змінній filenames
+    # os.listdir(workdir) - Забирає всі файли по певному шляху workdir
+    filenames = filter(os.listdir(workdir), extensions)
+    
+    
+    # Ми очищаємо список попередніх файлів
+    lw_files.clear()
+    # Перебираємо всі наші файли у наш список lw_files
+    for filename in filenames:
+        # Додаємо кожен з перебраних файлів у наш спиоск lw_files
+        lw_files.addItem(filename)
+
+
+
+btn_dir.clicked.connect(showFilenamesList)
+
+ 
+
+class ImageProcessor:
+    '''Класс для фільтрів наших зображень'''
+    def __init__(self):
+        self.image = None
+        self.dir = None
+        self. filename = None 
+        # Для створення нової папки "Modified/", куди будуть зберігатися наші відфільтровані картинки
+        self.save_dir = "Modified/"
+
+    def LoadImage(self, filename):
+        '''При загрузці запоминаєм шлях i ім'я файлу'''
+        # Зберігаємо файл, який ми будемо завантажувати 
+        self. filename = filename
+        # Зберігаємо повністю шлях до нашої картинки у змінну fullname
+        fullname = os.path.join(workdir, filename)
+        # Відкриваємсо нашу картинку за допомогою бібліотеки Pillow
+        self.image = Image.open(fullname)
+
+    def saveImage(self) :
+        '''Зберігає копію нашого файлу у підпапці'''
+        # Створюємо новий шлях, за допомогою функції os.path.join
+        # Шлях складається зі шляху до нашої теперішньої папки, і додавання до неї папки self.save_dir
+        path = os.path.join(workdir, self.save_dir)
+        # Якщо у нас не існує такий шлях, чи така папка 
+        if not (os.path.exists(path) or os.path.isdir(path)): 
+            # Ми створюємо цю папку
+            os.mkdir (path)
+        # Створюємо новий шлях, за допомогою функції os.path.join
+        # Шлях складається зі шляху до нашої папки раїї, і додавання до неї файлу з розширенням
+        fullname = os.path.join(path, self.filename)
+        # Зберігаємо нашу картинку з фільтрами у нашу папку Modified
+        self. image. save(fullname)
+
+
+    def do_bw(self): 
+        '''Чорно-білий фільтр для картинок'''
+        # Зберігаємо нашу картинку з чорно-білим фільтром у змінну self.image
+        self.image = self.image.convert("L")
+        # За допомогою функції self.saveImage() зберігаємо нашу картинку 
+        self.saveImage()
+        #  Створюємо шлях до цієї картинки
+        # workdir - наша головна папка  з якої ми почали
+        # self.save_dir -   папка в яку ми зберегли наші картинки
+        # self.filename - ім'я нашого файлу з розширенням
+        image_path = os.path.join(workdir, self.save_dir, self. filename)
+        # Показуємо нашу картинку з фільтром, передаючи шлях, який ми тільки-що створили у змінній image_path
+        self. showImage(image_path)
+
+    def do_left(self):
+        '''Повертаємо картинку вліво '''
+        # Зберігаємо нашу картинку, перевернуту вліво на 90 градусів у змінну self. image
+        self.image = self. image. transpose (Image.ROTATE_90)
+        # За допомогою функції self.savelmage() зберігаємо нашу картинку
+        self.savelmage()
+        # Створюємо шлях до цієї картинки
+        image_path = os.path.join(workdir, self.save_dir, self. filename)
+        # Показуємо нашу картинку з фільтром, передаючи шлях, який ми тільки-що створили у змінній image_path
+        self. showImage(image_path)
+
+    def do_right (self):
+        '''Повертаємо картинку вправо '''
+        # Зберігаємо нашу картинку, перевернуту вліво на 270 градусів у змінну self.image
+        self.image = self. image. transpose (Image. ROTATE_270)
+        # За допомогою функції self.savelmage() зберігаємо нашу картинку
+        self.savelmage()
+        # Створюємо шлях до цієї картинки
+        image_path = os.path.join(workdir, self.save_dir, self. filename)
+        # Показуємо нашу картинку з фільтром, передаючи шлях, який ми тільки-що створили у змінній image_path
+        self. showImage(image_path)
+
+    def do_flip(self):
+        '''Відображаємо картинку дзеркально'''
+        # Зберігаємо нашу картинку, перевернуту дзеркально у змінну self.image
+        self.image = self. image. transpose (Image .FLIP_LEFT_RIGHT)
+        # За допомогою функції self.savelmage() зберігаємо нашу картинку
+        self.saveImage()
+        # Створюємо шлях до цієї картинки
+        image_path = os.path.join(workdir, self.save_dir, self. filename) 
+        # Показуємо нашу картинку з фільтром, передаючи шлях, який ми тільки-що створили у змінній image_path 
+        self. showImage(image_path)
+    
+    def do_sharpen(self):    
+        '''Надаємо нашій картинці різкість '''
+        #  Зберігаємо нашу картинку, більш різку у змінну self.image
+        self.image = self.image. filter (SHARPEN)
+        # За допомогою функції self.savelmage() зберігаємо нашу картинку
+        self.savelmage()
+        # Створюємо шлях до цієї картинки
+        image_path = os.path.join(workdir, self.save_dir, self. filename) 
+        #Показуємо нашу картинку з фільтром, передаючи шлях, який ми тільки-що створили у змінній image_path 
+        self.showImage(image_path)
+
+    def showImage(self, path):
+        '''Показує нашу картинку у нашій программі'''
+        # Ховає нашу попередню картинку
+        lb_image.hide()
+        # Створємо область для відображення картинки y Pyqt
+        pixmapimage = QPixmap(path)
+        # Для цієї області, для її розмірів, беремо висоту і ширину нашої картинки
+        w, h = lb_image.width(), lb_image.height()
+        # Розтягуємо цю нашу область на висоту і ширину, дозволяємо відображати зображення
+        # За допомогою Qt.KeepAspectRatio
+        pixmapimage = pixmapimage.scaled(w, h, Qt.KeepAspectRatio)
+        # Відображаємо нашу область
+        lb_image. setPixmap(pixmapimage)
+        # Відображаємо нашу картинку на цій області
+        lb_image.show()
+        
+workimage = ImageProcessor()
+
+
+def showChosenImage():
+    ''' Показує нашу вибрану картинку'''
+    # Якщо ми натиснули на елемент списку Pyqt
+    if lw_files.currentRow() >= 0:
+        #  Створемо змінну filename,  у яку зберігаємо ім'я нашої картинки
+        # lw_files.currentItem().text() - забирає конкретно вибраний наш елемент
+        filename = lw_files.currentItem().text() # image1.png
+        # Завантажуємо нашу вибрану картинку зі списку за допомогою функції LoadImage y классі ImageProcessor
+        workimage . LoadImage (filename)
+        # Відображаємо нашу вибрану картинку зі списку за допомогою функції showImage y классі ImageProcessor 
+        workimage. showImage(os.path.join(workdir, workimage.filename))
+        
+        
+        
+# Подія, яка виникає, коли ми вибираємо інший елемент списку pyqt
+lw_files.currentRowChanged. connect (showChosenImage)
+
+# До наших створених кнопок прикріплюємо наші фільтри
+btn_bw. clicked. connect(workimage.do_bw)
+btn_left. clicked. connect (workimage.do_left)
+btn_right.clicked. connect (workimage.do_right)
+btn_sharp.clicked. connect (workimage.do_sharpen)
+btn_flip.clicked. connect (workimage.do_flip)
+
+# Завершуємо нашу программу
+app.exec()
